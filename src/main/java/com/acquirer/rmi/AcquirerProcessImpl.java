@@ -1,10 +1,16 @@
 package com.acquirer.rmi;
 
 import com.model.AcquirerTransaction;
+import com.model.TransactionSerializer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 public class AcquirerProcessImpl implements AcquirerProcessInterface, AcquirerTimeInterface {
 
@@ -13,24 +19,13 @@ public class AcquirerProcessImpl implements AcquirerProcessInterface, AcquirerTi
         return a + b;
     }
 
-//    public Long getSynchronisedTime(){
-//        Long start = Instant.now().toEpochMilli();
-//        AcquirerTimeInterface neighbour1 = (AcquirerTimeInterface) registry.lookup(args[2]);
-//        AcquirerTimeInterface neighbour2 = (AcquirerTimeInterface) registry.lookup(args[3]);
-//        Long time1 =  neighbour1.getSystemTime();
-//        Long time2 = neighbour2.getSystemTime();
-//        Long end = Instant.now().toEpochMilli();
-//        Long rtt = end - start;
-//        Long averageRtt = rtt / 2;
-//        Long synchronisedServerTime = (Instant.now().toEpochMilli() + averageRtt + time1 + time2) / 3;
-//        System.out.println("The synchronised "+ args[0] +" server time is: " + synchronisedServerTime);
-//        return synchronisedServerTime;
-//    }
 
     @Override
     public Map<String, String> processMerchantTransaction(AcquirerTransaction acquirerTransaction) throws Exception {
 
         System.out.println("Request Received with Body " + acquirerTransaction);
+        acquirerTransaction.setTimestamp(this.getSystemTime());
+        acquirerTransaction.setStatus("failed");
         Map<String, String> map = new HashMap<>();
         map.put("id", acquirerTransaction.getId());
         map.put("status", "failed");
@@ -38,9 +33,24 @@ public class AcquirerProcessImpl implements AcquirerProcessInterface, AcquirerTi
         map.put("merchantName", acquirerTransaction.getMerchantName());
         if(acquirerTransaction.getAmount() <= 1000) {
             map.put("status", "approved");
+            acquirerTransaction.setStatus("approved");
         }
+        // ProducerRecord
+        ProducerRecord<String, AcquirerTransaction> producerRecord = new ProducerRecord<String, AcquirerTransaction>("transaction", acquirerTransaction);
+
+        // Send to Kafka
+        Properties properties = new Properties();
+        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,"127.0.0.1:9092");
+        properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, TransactionSerializer.class.getName());
+
+        // create kafka consumer
+        KafkaProducer<String, AcquirerTransaction> kafkaProducer = new KafkaProducer<String, AcquirerTransaction>(properties);
+        kafkaProducer.send(producerRecord);
+
         return map; //passed by value
     }
+
     @Override
     public long getSystemTime(){
         long time = Instant.now().toEpochMilli();

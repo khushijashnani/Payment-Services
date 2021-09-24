@@ -1,7 +1,8 @@
 package com.client;
 
+import com.balancer.rmi.LoadBalancerInterface;
 import com.model.AcquirerTransaction;
-import com.acquirer.rmi.AcquirerProcessInterface;
+import com.utils.Utils;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -11,16 +12,17 @@ public class MerchantClient{
     public static void main(String[] args) throws Exception {
         Thread.sleep(5000);
         Scanner sc = new Scanner(System.in);
+
         Registry registry = LocateRegistry.getRegistry(2000);
         // add load balancer here
-        AcquirerProcessInterface acquirertransaction = (AcquirerProcessInterface)registry.lookup("acquirer1");
+        LoadBalancerInterface loadBalancerStub = (LoadBalancerInterface)registry.lookup("balancer");
         AcquirerTransaction firstAcquirerTransaction = new AcquirerTransaction();
         int choice = 1;
         while(choice != -1) {
             System.out.println("Enter\n\t 1 for preset params\n\t 2 for custom params\n\t 3 for custom amount\n\t-1 to exit");
             choice = sc.nextInt();
             if (choice == 1) {
-                firstAcquirerTransaction.setId("1");
+                firstAcquirerTransaction.setId(Utils.getAlphaNumericString(5));
                 firstAcquirerTransaction.setAmount(1001);
                 firstAcquirerTransaction.setCustomerCardNumber("000000000");
                 firstAcquirerTransaction.setMerchantName("Amazon");
@@ -43,7 +45,6 @@ public class MerchantClient{
                 temp = sc.next();
                 firstAcquirerTransaction.setMerchantAccountId(temp);
                 System.out.println("Enter customer name");
-
                 temp = sc.next();
                 firstAcquirerTransaction.setCustomerName(temp);
             }
@@ -58,7 +59,8 @@ public class MerchantClient{
                 firstAcquirerTransaction.setCustomerName("Rishi");
             }
 
-            System.out.println("Response Body: " + acquirertransaction.processMerchantTransaction(firstAcquirerTransaction));
+
+            System.out.println("Response Body: " + loadBalancerStub.processMerchantTransaction(firstAcquirerTransaction));
         }
     }
 }
